@@ -1,91 +1,74 @@
 import os
-from PIL import Image, ImageDraw, ImageFont
+import numpy as np
+from PIL import Image, ImageDraw, ImageFilter
 
 output_dir = "generated_store_assets"
 os.makedirs(output_dir, exist_ok=True)
 
-def create_gradient(width, height, start_color, end_color):
-    base = Image.new('RGBA', (width, height), start_color)
-    top = Image.new('RGBA', (width, height), end_color)
-    mask = Image.new('L', (width, height))
-    mask_data = [int(255 * (y / height)) for y in range(height) for _ in range(width)]
-    mask.putdata(mask_data)
-    base.paste(top, (0, 0), mask)
-    return base
+def create_glass_card(width, height, title, glow_color):
+    # Base Gradient background (Dark Navy/Purple Aura Theme)
+    base = Image.new('RGBA', (width, height), (15, 23, 42, 255))
+    draw = ImageDraw.Draw(base)
+    
+    # Ambient Light Orbs
+    glow = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    g_draw = ImageDraw.Draw(glow)
+    g_draw.ellipse([width*0.2, height*0.1, width*0.8, height*0.7], fill=(glow_color[0], glow_color[1], glow_color[2], 120))
+    glow = glow.filter(ImageFilter.GaussianBlur(radius=int(min(width, height)*0.15)))
+    base = Image.alpha_composite(base, glow)
+    
+    draw = ImageDraw.Draw(base)
+    
+    # Clean Glass Card (No sidebar/menus)
+    card_margin_x = int(width * 0.1)
+    card_margin_y = int(height * 0.15)
+    card_box = [card_margin_x, card_margin_y, width - card_margin_x, height - card_margin_y]
+    
+    draw.rounded_rectangle(card_box, radius=int(min(width, height)*0.05), fill=(30, 41, 59, 180), outline=(139, 92, 246, 200), width=4)
+    
+    # Center Player Ring (Glowing)
+    cx, cy = width // 2, height // 2
+    r = int(min(width, height) * 0.12)
+    draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(139, 92, 246, 220), outline=(236, 72, 153, 255), width=6)
+    
+    # Play Icon inside Ring
+    pr = int(r * 0.4)
+    draw.polygon([(cx - pr*0.5, cy - pr), (cx - pr*0.5, cy + pr), (cx + pr*0.8, cy)], fill=(255, 255, 255, 255))
+    
+    # Minimal Progress bar at bottom of card
+    p_y = int(card_box[3] - height * 0.08)
+    p_start = card_box[0] + int(width * 0.08)
+    p_end = card_box[2] - int(width * 0.08)
+    draw.rounded_rectangle([p_start, p_y, p_end, p_y + 8], radius=4, fill=(51, 65, 85, 255))
+    draw.rounded_rectangle([p_start, p_y, p_start + int((p_end-p_start)*0.4), p_y + 8], radius=4, fill=(236, 72, 153, 255))
+    
+    return base.convert("RGB")
 
-def draw_logo(draw, cx, cy, size):
-    r = size // 2
-    # Outer glow / circle
-    draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(139, 92, 246, 230))
-    # Inner wave / aura shape
-    draw.ellipse([cx - r*0.6, cy - r*0.6, cx + r*0.6, cy + r*0.6], fill=(236, 72, 153, 240))
-    draw.polygon([(cx, cy - r*0.4), (cx - r*0.35, cy + r*0.35), (cx + r*0.35, cy + r*0.35)], fill=(255, 255, 255, 250))
-
-# 1. Generate Basic Assets
-assets = [
-    ("icon_512.png", 512, 512, True),
-    ("icon_114.png", 114, 114, True),
-    ("promo_1024x500.png", 1024, 500, False),
-    ("firetv_icon_1280x720.png", 1280, 720, False),
-    ("firetv_bg_1920x1080.jpg", 1920, 1080, False),
-    ("featured_logo_640x260.png", 640, 260, True),
-    ("featured_bg_1920x720.jpg", 1920, 720, False)
+# Devices Resolutions (Clean Screens)
+devices = [
+    ("screenshot_phone_android.png", 1080, 1920, (239, 68, 68), "Cozy Fireplace"),    # Phone Android (Vertical)
+    ("screenshot_phone_iphone.png", 1290, 2796, (14, 165, 233), "Gentle Rain"),      # iPhone (Vertical)
+    ("screenshot_tablet.png", 2048, 1536, (124, 58, 237), "Deep Space"),            # Tablet (Horizontal)
+    ("screenshot_firetv.png", 1920, 1080, (34, 197, 94), "Forest Nature")            # TV (Horizontal 16:9)
 ]
 
-for name, w, h, trans in assets:
-    img = Image.new('RGBA', (w, h), (0, 0, 0, 0)) if trans else create_gradient(w, h, (15, 23, 42, 255), (88, 28, 135, 255))
-    draw = ImageDraw.Draw(img)
-    draw_logo(draw, w // 2, h // 2, min(w, h) // 3)
-    if name.endswith(".jpg"):
-        img = img.convert("RGB")
-    img.save(os.path.join(output_dir, name))
+for filename, w, h, color, title in devices:
+    img = create_glass_card(w, h, title, color)
+    img.save(os.path.join(output_dir, filename))
 
-# 2. Generate Professional App Screenshots (UI Mockup)
-scenes = [
-    ("Cozy Fireplace Sound", (239, 68, 68), "FIREPLACE"),
-    ("Deep Space Ambiance", (124, 58, 237), "GALAXY"),
-    ("Gentle Rain & Thunder", (14, 165, 233), "RAIN"),
-    ("Relaxing Forest Nature", (34, 197, 94), "NATURE")
+# Standard Amazon Store Assets
+basic_assets = [
+    ("icon_512.png", 512, 512, (124, 58, 237)),
+    ("icon_114.png", 114, 114, (124, 58, 237)),
+    ("promo_1024x500.png", 1024, 500, (239, 68, 68)),
+    ("firetv_icon_1280x720.png", 1280, 720, (14, 165, 233)),
+    ("firetv_bg_1920x1080.jpg", 1920, 1080, (124, 58, 237)),
+    ("featured_logo_640x260.png", 640, 260, (124, 58, 237)),
+    ("featured_bg_1920x720.jpg", 1920, 720, (124, 58, 237))
 ]
 
-for i, (title, color, scene_type) in enumerate(scenes, 1):
-    # Main Background
-    shot = create_gradient(1920, 1080, (10, 15, 30, 255), (20, 10, 40, 255))
-    draw = ImageDraw.Draw(shot)
-    
-    # Header Bar
-    draw.rectangle([0, 0, 1920, 120], fill=(15, 23, 42, 200))
-    draw_logo(draw, 100, 60, 60)
-    
-    # Active Sound Banner / Center Card
-    draw.rounded_rectangle([150, 180, 1100, 850], radius=30, fill=(30, 41, 59, 220), outline=color, width=4)
-    
-    # Draw Visual Art inside Card
-    art_box = [200, 230, 1050, 650]
-    draw.rounded_rectangle(art_box, radius=20, fill=(color[0]//3, color[1]//3, color[2]//3, 255))
-    draw_logo(draw, 625, 440, 220)
-    
-    # Player Controls (Bottom)
-    draw.rounded_rectangle([150, 880, 1770, 1020], radius=25, fill=(15, 23, 42, 240))
-    # Progress bar
-    draw.rounded_rectangle([200, 910, 1720, 920], radius=5, fill=(51, 65, 85, 255))
-    draw.rounded_rectangle([200, 910, 800, 920], radius=5, fill=color)
-    # Play / Pause Buttons
-    draw.ellipse([930, 935, 990, 995], fill=color)
-    draw.polygon([(952, 952), (952, 978), (975, 965)], fill=(255, 255, 255, 255))
-    
-    # Sidebar Grid (Other Sounds)
-    sidebar_x = 1150
-    for idx, (s_title, s_color, _) in enumerate(scenes):
-        sy = 180 + idx * 160
-        is_active = (idx == i - 1)
-        bg_col = (45, 55, 72, 255) if is_active else (23, 32, 51, 200)
-        draw.rounded_rectangle([sidebar_x, sy, 1770, sy + 140], radius=20, fill=bg_col, outline=s_color if is_active else None, width=3)
-        draw.ellipse([sidebar_x + 30, sy + 35, sidebar_x + 100, sy + 105], fill=s_color)
+for filename, w, h, color in basic_assets:
+    img = create_glass_card(w, h, "Aura", color)
+    img.save(os.path.join(output_dir, filename))
 
-    # Save PNGs
-    shot_rgb = shot.convert("RGB")
-    shot_rgb.save(os.path.join(output_dir, f"screenshot_tablet_{i}.png"))
-    shot_rgb.save(os.path.join(output_dir, f"screenshot_firetv_{i}.png"))
-
-print("✅ Professional screenshots generated successfully!")
+print("✅ All Device Screenshots Generated Successfully!")
